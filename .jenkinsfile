@@ -1,0 +1,48 @@
+pipeline {
+    agent any
+
+   environment {
+       registry = "xyx.dkr.ecr.ap-south-1.amazonaws.com/harry"
+       myImgName= "shubha"
+       
+       
+   }
+    stages {
+        stage('git checkout') {
+            steps {
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/imHarry404/docker-jenkins-helm-spring-boot.git']])
+            }
+        }
+        
+        stage('Build jar files') {
+            steps {
+                sh "mvn clean install"
+            }
+        }
+        
+        stage('build image') {
+            steps {
+                script{
+                dockerImage=docker.build registry
+                dockerImage.tag("$myImgName-$BUILD_NUMBER")
+                }
+            }
+        }
+        stage('push images') {
+            steps {
+                script{
+                    sh "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin xyz.dkr.ecr.ap-south-1.amazonaws.com"
+                    sh "docker push xyx.dkr.ecr.ap-south-1.amazonaws.com/harry:$myImgName-$BUILD_NUMBER"
+                }
+            }
+        }
+        
+        stage ('Helm Deploy') {
+          steps {
+            script {
+                sh "helm upgrade hkchart --install hkchart --namespace harry --set image.tag=$myImgName-$BUILD_NUMBER"
+                }
+            }
+        }        
+    }
+}
